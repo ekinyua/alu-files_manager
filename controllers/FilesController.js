@@ -177,11 +177,9 @@ class FilesController {
     }
 
     const pipeline = [
-      { $match: { parentId } },
+      { $match: { parentId: parentId === 0 ? 0 : ObjectId(parentId) } },
       { $skip: page * 20 },
-      {
-        $limit: 20,
-      },
+      { $limit: 20 },
     ];
 
     const fileCursor = await fileUtils.getFilesOfParentId(pipeline);
