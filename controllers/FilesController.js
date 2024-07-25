@@ -149,42 +149,49 @@ class FilesController {
    */
   static async getIndex(request, response) {
     const { userId } = await userUtils.getUserIdAndKey(request);
-  
+
     const user = await userUtils.getUser({
       _id: ObjectId(userId),
     });
-  
+
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
-  
+
     let parentId = request.query.parentId || '0';
-    let page = Number(request.query.page) || 0;
-  
-    if (Number.isNaN(page)) page = 0;
-  
+
     if (parentId === '0') parentId = 0;
-  
-    const pipeline = [];
-  
-    if (parentId !== 0) {
-      if (!basicUtils.isValidId(parentId)) {
-        return response.status(400).send({ error: 'Invalid parentId' });
-      }
-      pipeline.push({ $match: { parentId: ObjectId(parentId) } });
-    } else {
-      pipeline.push({ $match: { parentId: 0 } });
+
+    let page = Number(request.query.page) || 0;
+
+    if (Number.isNaN(page)) page = 0;
+
+    if (parentId !== 0 && parentId !== '0') {
+      if (!basicUtils.isValidId(parentId)) { return response.status(401).send({ error: 'Unauthorized' }); }
+
+      parentId = ObjectId(parentId);
+
+      const folder = await fileUtils.getFile({
+        _id: ObjectId(parentId),
+      });
+
+      if (!folder || folder.type !== 'folder') { return response.status(200).send([]); }
     }
-  
-    pipeline.push({ $skip: page * 20 });
-    pipeline.push({ $limit: 20 });
-  
+
+    const pipeline = [
+      { $match: { parentId } },
+      { $skip: page * 20 },
+      {
+        $limit: 20,
+      },
+    ];
+
     const fileCursor = await fileUtils.getFilesOfParentId(pipeline);
-  
+
     const fileList = [];
     await fileCursor.forEach((doc) => {
       const document = fileUtils.processFile(doc);
       fileList.push(document);
     });
-  
+
     return response.status(200).send(fileList);
   }
 
